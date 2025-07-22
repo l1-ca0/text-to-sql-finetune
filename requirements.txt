@@ -1,0 +1,26 @@
+# Core ML libraries 
+transformers>=4.51.0
+peft>=0.8.0
+accelerate>=1.4.0
+bitsandbytes>=0.41.0
+torch>=2.0.0
+
+# Dataset and training
+datasets>=3.0.0
+trl>=0.19.0
+
+# Fix for TensorFlow/Keras compatibility (if needed)
+tf-keras
+
+# Data processing and analysis
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Progress bars and utilities
+tqdm>=4.66.0
+
+# Web interface
+gradio>=4.0.0
+
+# Hugging Face Hub integration
+huggingface_hub>=0.19.0
