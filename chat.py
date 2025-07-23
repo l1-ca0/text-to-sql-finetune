@@ -495,13 +495,25 @@ def main():
     print_colored(f"Using device: {device}", Colors.BLUE)
     
     try:
+        from transformers import BitsAndBytesConfig
+        
         tokenizer = AutoTokenizer.from_pretrained(args.base_model_name)
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
         
+        # Configure quantization if CUDA is available
+        quantization_config = None
+        if torch.cuda.is_available():
+            quantization_config = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_quant_type="nf4",
+                bnb_4bit_compute_dtype=torch.float16,
+                bnb_4bit_use_double_quant=True
+            )
+        
         base_model = AutoModelForCausalLM.from_pretrained(
             args.base_model_name,
-            load_in_4bit=torch.cuda.is_available(),
+            quantization_config=quantization_config,
             torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
             device_map="auto" if torch.cuda.is_available() else None
         )
