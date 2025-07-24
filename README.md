@@ -6,7 +6,7 @@ This project demonstrates how to fine-tune a language model (configurable, Mistr
 
 * **QLoRA Fine-tuning:** Memory-efficient fine-tuning
 * **Parameter-Efficient Training:** Using LoRA Adapters and quantization techniques
-* **Application Development:** Gradio web applications and CLI tools
+* **Application Development:** Gradio web applications, CLI tools, and Jupyter notebook interface
 * **Model Evaluation:** Multi-metric assessment
 
 ![Text-to-SQL Web App](text-to-sql%20web%20app.png)
@@ -15,13 +15,15 @@ This project demonstrates how to fine-tune a language model (configurable, Mistr
 
 ```text
 text-to-sql-mistral/
-├── app.py              # Gradio web interface
-├── chat.py             # Interactive CLI 
-├── evaluate.py         # Evaluation suite
-├── finetune.py         # QLoRA fine-tuning script
-├── requirements.txt    # Python dependencies
-├── README.md           # This file
-└── .gitattributes      # Git LFS configuration
+├── app.py                  # Gradio web interface
+├── chat.py                 # Interactive CLI 
+├── notebook_chat.py        # Jupyter notebook interface
+├── notebook_example.ipynb  # Notebook usage example
+├── evaluate.py             # Evaluation suite
+├── finetune.py             # QLoRA fine-tuning script
+├── requirements.txt        # Python dependencies
+├── README.md               # This file
+└── .gitattributes          # Git LFS configuration
 ```
 
 ## Technical Details
@@ -59,6 +61,15 @@ python app.py  --hf_token "your_token" --share         # Launch web app
 python chat.py  --hf_token "your_token"                # CLI interface  
 python evaluate.py --hf_token "your_token" --skip_base # Evaluation metrics
 ```
+
+**For Jupyter Notebooks (Kaggle, Colab, JupyterLab):**
+
+```python
+from notebook_chat import start_chat
+chat = start_chat(hf_token="your_token")
+```
+
+See [notebook_example.ipynb](notebook_example.ipynb).
 
 ## Detailed Usage
 
