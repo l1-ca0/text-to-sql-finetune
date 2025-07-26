@@ -15,6 +15,7 @@ This project demonstrates how to fine-tune a language model (configurable, Mistr
 
 ```text
 text-to-sql-mistral/
+├── core.py                 # Core business logic 
 ├── app.py                  # Gradio web interface
 ├── chat.py                 # Interactive CLI 
 ├── notebook_chat.py        # Jupyter notebook interface
@@ -25,6 +26,20 @@ text-to-sql-mistral/
 ├── README.md               # This file
 └── .gitattributes          # Git LFS configuration
 ```
+
+### Core Architecture
+
+The project uses a modular architecture with shared business logic:
+
+* **`core.py`**
+  * Model loading and authentication
+  * SQL generation, validation, and execution
+  * Example schemas and questions
+  * SQL formatting utilities
+* **Interface files**
+  * `app.py` - Web interface using Gradio
+  * `chat.py` - Command-line interface
+  * `notebook_chat.py` - Jupyter notebook interface
 
 ## Technical Details
 
