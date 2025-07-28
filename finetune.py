@@ -84,6 +84,10 @@ def main():
                        help="Repository ID on the Hub (required if push_to_hub is True)")
     parser.add_argument("--hf_token", type=str, default=None,
                        help="Hugging Face token for authentication")
+    parser.add_argument("--use_8bit", action='store_true',
+                       help="Use 8-bit quantization")
+    parser.add_argument("--lora_rank", type=int, default=None,
+                       help="LoRA rank (default: 16 for 4-bit, 32 for 8-bit)")
     args = parser.parse_args()
     
     # Authenticate with Hugging Face
@@ -97,13 +101,29 @@ def main():
     dataset = load_dataset(args.dataset_name, split="train")
     print(f"Dataset loaded with {len(dataset)} training examples")
 
-    
-    bnb_config = BitsAndBytesConfig(
-        load_in_4bit=True,                    # Reduces model from 16-bit to 4-bit
-        bnb_4bit_quant_type="nf4",            # Uses NormalFloat4 quantization
-        bnb_4bit_compute_dtype=torch.float16, # Computation still in float16
-        bnb_4bit_use_double_quant=True        # Further compression
-    )
+    if args.use_8bit:
+        print("Using 8-bit quantization for improved accuracy...")
+        bnb_config = BitsAndBytesConfig(
+            load_in_8bit=True,                    # 8-bit quantization
+            llm_int8_threshold=6.0,               # Threshold for outlier detection
+            llm_int8_has_fp16_weight=False,       # Use int8 weights
+        )
+        default_lora_rank = 32
+        default_batch_size = 2
+        default_grad_accum = 2
+        default_lr = 1e-4
+    else:
+        print("Using 4-bit quantization for memory efficiency...")
+        bnb_config = BitsAndBytesConfig(
+            load_in_4bit=True,                    # 4-bit quantization
+            bnb_4bit_quant_type="nf4",            # Uses NormalFloat4 quantization
+            bnb_4bit_compute_dtype=torch.float16, # Computation still in float16
+            bnb_4bit_use_double_quant=True        # Further compression
+        )
+        default_lora_rank = 16
+        default_batch_size = 1
+        default_grad_accum = 4
+        default_lr = 2e-4
 
 
     model = AutoModelForCausalLM.from_pretrained(
@@ -117,12 +137,16 @@ def main():
     if not hasattr(tokenizer, 'model_max_length') or tokenizer.model_max_length > 1024:
         tokenizer.model_max_length = 1024
 
-    # LoRA only trains small adapter matrices (~0.1% of original parameters)
+    # LoRA configuration - adapt based on quantization and user preference
+    lora_rank = args.lora_rank if args.lora_rank is not None else default_lora_rank
+    target_modules = ["q_proj", "v_proj", "k_proj", "o_proj"] if args.use_8bit else ["q_proj", "v_proj"]
+    
+    print(f"LoRA configuration: rank={lora_rank}, target_modules={target_modules}")
     lora_config = LoraConfig(
-        r=16,                                 # Rank of adaptation matrices
-        lora_alpha=32,                        # Scaling factor (alpha/r = 2.0)
+        r=lora_rank,                          # Rank of adaptation matrices
+        lora_alpha=lora_rank * 2,             # Scaling factor (alpha/r = 2.0)
         lora_dropout=0.05,                    # Dropout for regularization
-        target_modules=["q_proj", "v_proj"]   # Only adapt query/value projections
+        target_modules=target_modules         # Adapt more modules for 8-bit
     )
 
     
@@ -140,11 +164,12 @@ def main():
         text = f"### CONTEXT\n{example['context']}\n\n### QUESTION\n{example['question']}\n\n### SQL\n{example['answer']}"
         return {"text": text}
 
+    # Training arguments optimized for the chosen quantization
     training_args = TrainingArguments(
         output_dir=args.output_dir,
-        per_device_train_batch_size=1,
-        gradient_accumulation_steps=4,
-        learning_rate=2e-4,
+        per_device_train_batch_size=default_batch_size,
+        gradient_accumulation_steps=default_grad_accum,
+        learning_rate=default_lr,
         max_steps=args.max_steps,
         logging_steps=10,
         fp16=True,
@@ -157,6 +182,8 @@ def main():
         dataloader_drop_last=True,
         group_by_length=True,
         report_to="none",  # Disable wandb logging
+        save_steps=500,
+        logging_first_step=True,
     )
 
     # Preprocess the dataset to add the text field that SFTTrainer expects

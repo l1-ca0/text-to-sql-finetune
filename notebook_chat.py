@@ -18,9 +18,10 @@ from core import (
 )
 
 class TextToSQLChat:
-    def __init__(self, adapter_path="./sql-mistral-adapter-final", base_model_name="mistralai/Mistral-7B-v0.3", hf_token=None):
+    def __init__(self, adapter_path="./sql-mistral-adapter-final", base_model_name="mistralai/Mistral-7B-v0.3", hf_token=None, use_8bit=False):
         self.adapter_path = adapter_path
         self.base_model_name = base_model_name
+        self.use_8bit = use_8bit
         self.model = None
         self.tokenizer = None
         self.current_schema = ""
@@ -38,7 +39,7 @@ class TextToSQLChat:
     def load_model(self):
         """Load the model and tokenizer."""
         try:
-            self.model, self.tokenizer, self.device = load_model_and_tokenizer(self.base_model_name, self.adapter_path)
+            self.model, self.tokenizer, self.device = load_model_and_tokenizer(self.base_model_name, self.adapter_path, self.use_8bit)
             print("[SUCCESS] Model loaded successfully!")
         except Exception as e:
             print(f"[ERROR] Error loading model: {e}")
@@ -188,7 +189,7 @@ class TextToSQLChat:
         display(self.ui)
 
 # Usage function for notebooks
-def start_chat(adapter_path="./sql-mistral-adapter-final", base_model_name="mistralai/Mistral-7B-v0.3", hf_token=None):
+def start_chat(adapter_path="./sql-mistral-adapter-final", base_model_name="mistralai/Mistral-7B-v0.3", hf_token=None, use_8bit=False):
     """
     Start the Text-to-SQL chat interface in Jupyter notebooks.
     
@@ -196,7 +197,8 @@ def start_chat(adapter_path="./sql-mistral-adapter-final", base_model_name="mist
         adapter_path: Path to the fine-tuned adapter
         base_model_name: Base model name
         hf_token: Hugging Face token for authentication
+        use_8bit: Use 8-bit quantization for better accuracy (requires more VRAM)
     """
-    chat = TextToSQLChat(adapter_path, base_model_name, hf_token)
+    chat = TextToSQLChat(adapter_path, base_model_name, hf_token, use_8bit)
     chat.display()
     return chat

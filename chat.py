@@ -164,6 +164,7 @@ def main():
     parser.add_argument("--temperature", type=float, default=0.1, help="Generation temperature (0.0-1.0)")
     parser.add_argument("--load_session", type=str, help="Load previous session from file")
     parser.add_argument("--hf_token", type=str, default=None, help="Hugging Face token for authentication")
+    parser.add_argument("--use_8bit", action="store_true", help="Use 8-bit quantization for inference")
     args = parser.parse_args()
     
     # Initialize session
@@ -186,7 +187,7 @@ def main():
     print_colored("Loading model and adapter...", Colors.CYAN)
     
     try:
-        model, tokenizer, device = load_model_and_tokenizer(args.base_model_name, args.adapter_path)
+        model, tokenizer, device = load_model_and_tokenizer(args.base_model_name, args.adapter_path, args.use_8bit)
         print_colored("[SUCCESS] Model loaded successfully!", Colors.GREEN)
     except Exception as e:
         print_colored(f"[ERROR] Error loading model: {e}", Colors.RED)

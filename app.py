@@ -34,12 +34,12 @@ model = None
 tokenizer = None
 device = None
 
-def load_model():
+def load_model(use_8bit=False):
     """Load model and tokenizer using core module."""
     global model, tokenizer, device
     
     try:
-        model, tokenizer, device = load_model_and_tokenizer(BASE_MODEL_NAME, ADAPTER_PATH)
+        model, tokenizer, device = load_model_and_tokenizer(BASE_MODEL_NAME, ADAPTER_PATH, use_8bit)
         return True
     except Exception:
         return False
@@ -301,6 +301,7 @@ def main():
     parser.add_argument("--share", action="store_true", help="Create public link")
     parser.add_argument("--port", type=int, default=7860, help="Port to run on")
     parser.add_argument("--hf_token", type=str, default=None, help="Hugging Face token for authentication")
+    parser.add_argument("--use_8bit", action="store_true", help="Use 8-bit quantization for inference")
     args = parser.parse_args()
     
     # Update global paths
@@ -313,7 +314,7 @@ def main():
         return
     
     # Load model
-    if not load_model():
+    if not load_model(args.use_8bit):
         print("Failed to load model. Exiting.")
         return
     

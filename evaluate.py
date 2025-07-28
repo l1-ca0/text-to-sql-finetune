@@ -4,14 +4,13 @@ import re
 import sqlite3
 from datasets import load_dataset
 from peft import PeftModel
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from tqdm import tqdm
 import argparse
 from collections import defaultdict
 import pandas as pd
 from datetime import datetime
-from huggingface_hub import login
-import os
+from core import authenticate_huggingface, validate_sql_syntax
 
 def format_prompt(sample):
     return f"### CONTEXT\n{sample['context']}\n\n### QUESTION\n{sample['question']}\n\n### SQL\n"
@@ -27,19 +26,9 @@ def normalize_sql(sql):
     return sql.lower()
 
 def is_sql_syntactically_valid(sql):
-    """Check if SQL is syntactically valid using sqlite3."""
-    try:
-        if not sql or not sql.strip():
-            return False
-        # Create in-memory database
-        conn = sqlite3.connect(':memory:')
-        cursor = conn.cursor()
-        # Try to explain the query (doesn't execute, just parses)
-        cursor.execute(f"EXPLAIN QUERY PLAN {sql}")
-        conn.close()
-        return True
-    except Exception:
-        return False
+    """Check if SQL is syntactically valid using core module."""
+    is_valid, _ = validate_sql_syntax(sql)
+    return is_valid
 
 def calculate_token_overlap(pred_tokens, true_tokens):
     """Calculate token-level overlap between predicted and true SQL."""
@@ -240,32 +229,7 @@ def save_detailed_report(base_metrics, base_results, ft_metrics, ft_results, out
         json.dump(report, f, indent=2)
     print(f"Detailed report saved to: {output_file}")
 
-def authenticate_huggingface(token=None):
-    """Handle Hugging Face authentication."""
-    if token:
-        print("Using provided token for authentication...")
-        login(token=token)
-        return True
-    
-    # Check for token in environment variables
-    hf_token = os.getenv('HUGGINGFACE_HUB_TOKEN') or os.getenv('HF_TOKEN')
-    if hf_token:
-        print("Using token from environment variable...")
-        login(token=hf_token)
-        return True
-    
-    # Check if already logged in
-    try:
-        from huggingface_hub import whoami
-        user_info = whoami()
-        print(f"Already authenticated as: {user_info['name']}")
-        return True
-    except Exception:
-        pass
-    
-    print("Authentication required for gated model.")
-    print("Please set HUGGINGFACE_HUB_TOKEN environment variable or use --hf_token argument")
-    return False
+# Authentication function is now imported from core module
 
 def main():
     parser = argparse.ArgumentParser(description="Evaluate a Text-to-SQL model with comprehensive metrics.")
@@ -274,6 +238,7 @@ def main():
     parser.add_argument("--sample_size", type=int, default=None, help="Number of samples to evaluate (default: all)")
     parser.add_argument("--output_report", type=str, default=None, help="Path to save detailed JSON report")
     parser.add_argument("--skip_base", action='store_true', help="Skip base model evaluation")
+    parser.add_argument("--use_8bit", action='store_true', help="Use 8-bit quantization for evaluation")
     parser.add_argument("--hf_token", type=str, default=None, help="Hugging Face token for authentication")
     args = parser.parse_args()
     
@@ -297,6 +262,23 @@ def main():
         print(f"Further limiting to sample size: {args.sample_size}")
         dataset = dataset.select(range(min(args.sample_size, len(dataset))))
     
+    # Configure quantization
+    if args.use_8bit:
+        print("Using 8-bit quantization for evaluation...")
+        quantization_config = BitsAndBytesConfig(
+            load_in_8bit=True,
+            llm_int8_threshold=6.0,
+            llm_int8_has_fp16_weight=False,
+        )
+    else:
+        print("Using 4-bit quantization for evaluation...")
+        quantization_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_compute_dtype=torch.float16,
+            bnb_4bit_use_double_quant=True
+        )
+
     # Load tokenizer
     tokenizer = AutoTokenizer.from_pretrained(args.base_model_name)
     if tokenizer.pad_token is None:
@@ -309,7 +291,7 @@ def main():
         print("\nLoading base model...")
         base_model = AutoModelForCausalLM.from_pretrained(
             args.base_model_name, 
-            load_in_4bit=True, 
+            quantization_config=quantization_config,
             torch_dtype=torch.float16, 
             device_map="auto"
         )
@@ -329,7 +311,7 @@ def main():
     print("\nLoading fine-tuned model...")
     base_model = AutoModelForCausalLM.from_pretrained(
         args.base_model_name, 
-        load_in_4bit=True, 
+        quantization_config=quantization_config,
         torch_dtype=torch.float16, 
         device_map="auto"
     )

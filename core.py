@@ -45,7 +45,7 @@ def authenticate_huggingface(token=None):
 
 
 # --- Model Loading & Management ---
-def load_model_and_tokenizer(base_model_name, adapter_path):
+def load_model_and_tokenizer(base_model_name, adapter_path, use_8bit=False):
     """Load model and tokenizer with proper error handling."""
     print("Loading model and tokenizer...")
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -59,12 +59,21 @@ def load_model_and_tokenizer(base_model_name, adapter_path):
         # Configure quantization if CUDA is available
         quantization_config = None
         if torch.cuda.is_available():
-            quantization_config = BitsAndBytesConfig(
-                load_in_4bit=True,
-                bnb_4bit_quant_type="nf4",
-                bnb_4bit_compute_dtype=torch.float16,
-                bnb_4bit_use_double_quant=True
-            )
+            if use_8bit:
+                print("Using 8-bit quantization for inference...")
+                quantization_config = BitsAndBytesConfig(
+                    load_in_8bit=True,
+                    llm_int8_threshold=6.0,
+                    llm_int8_has_fp16_weight=False,
+                )
+            else:
+                print("Using 4-bit quantization for inference...")
+                quantization_config = BitsAndBytesConfig(
+                    load_in_4bit=True,
+                    bnb_4bit_quant_type="nf4",
+                    bnb_4bit_compute_dtype=torch.float16,
+                    bnb_4bit_use_double_quant=True
+                )
 
         base_model = AutoModelForCausalLM.from_pretrained(
             base_model_name,
