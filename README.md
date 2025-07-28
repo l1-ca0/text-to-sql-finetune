@@ -44,8 +44,9 @@ The project uses a modular architecture with shared business logic:
 ## Technical Details
 
 * **Base Model:** `mistralai/Mistral-7B-v0.3` (configurable)
-* **Adapter Rank:** 16 (configurable)
-* **Target Modules:** Query and Value projection layers
+* **Quantization:** 4-bit (default) or 8-bit (better accuracy)
+* **Adapter Rank:** 16 (4-bit) or 32 (8-bit)  (configurable)
+* **Target Modules:** Query/Value (4-bit) or Query/Key/Value/Output (8-bit)
 * **Training Data:** `b-mc2/sql-create-context` dataset
 * **Prompt Format:** Context → Question → SQL structure
 
@@ -71,8 +72,14 @@ The project uses a modular architecture with shared business logic:
 ## Quick Usage
 
 ```bash
-python finetune.py --hf_token "your_token"             # Train the model (~3 hours on Nvidia Tesla P100 GPU)
-python app.py  --hf_token "your_token" --share         # Launch web app
+# Training (4-bit quantization - default, ~7GB VRAM)
+python finetune.py --hf_token "your_token"
+
+# Training (8-bit quantization - better accuracy, ~14GB VRAM)
+python finetune.py --hf_token "your_token" --use_8bit
+
+# Launch interfaces
+python app.py  --hf_token "your_token" --share         # Web app
 python chat.py  --hf_token "your_token"                # CLI interface  
 python evaluate.py --hf_token "your_token" --skip_base # Evaluation metrics
 ```
